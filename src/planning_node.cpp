@@ -11,6 +11,7 @@ static float distance = 0;
 static int angle_lock = 0;
 static int distance_lock = 0;
 static int yolo_sign = 0;
+static int yolo_lock = 0;
 static float vel_val = 0;
 static double x_roll = 0;
 static double y_pitch = 0;
@@ -52,6 +53,13 @@ void obj_Callback(const std_msgs::Float64::ConstPtr& msg)
 void yolo_Callback(const std_msgs::Float64::ConstPtr& msg)
 {
     yolo_sign = msg->data;
+	if(yolo_sign == 1){
+		yolo_lock = 1;
+		std::cout << "yolo_lock!!" << std::endl;
+	}
+	else{
+		yolo_lock = 0;
+	}
 }
 
 void lane_Callback(const std_msgs::Float64MultiArray::ConstPtr& msg)
@@ -140,7 +148,7 @@ int main(int argc, char **argv)
 		ros::Rate loop_rate(7);
 		ros::spinOnce();
 
-        if((yolo_sign!=0)&(angle_lock==0)&(distance_lock==0)){
+        if((yolo_lock==0)&(angle_lock==0)&(distance_lock==0)){
 			cmd_vel.linear.x = vel_val;
 		}
 		else{
@@ -148,7 +156,7 @@ int main(int argc, char **argv)
                         //printf("lock!\n");
 		}
 
-		if((prev_vel.linear.x != cmd_vel.linear.x)|(prev_vel.angular.z != cmd_vel.angular.z)){
+		if((prev_vel.linear.x != cmd_vel.linear.x)||(prev_vel.angular.z != cmd_vel.angular.z)){
 			printf("vel_pub!\n");
 			final_control_pub.publish(cmd_vel);
 		}
