@@ -22,7 +22,7 @@ int main(int argc, char **argv){
     //웹캡으로 부터 데이터 읽어오기 위해 준비
     // 보통 0 또는 1번입니다
     // 노트북의 경우 웹캠이 자체적으로 달려있으므로 1번일 가능성이 높습니다
-    cv::VideoCapture cap1("/dev/video2");
+    cv::VideoCapture cap1("/dev/video0");
 	// cv::VideoCapture cap1("tcambin serial = 50910677! video / x-raw, format = BGRx, width = 1280, height = 960, framerate = 20 / 1! videoconvert! videoscale! appsink", cv::CAP_GSTREAMER);
     // cv::VideoCapture cap1(0);
 

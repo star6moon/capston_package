@@ -144,7 +144,8 @@ int main(int argc, char **argv)
 			cmd_vel.linear.x = vel_val;
 		}
 		else{
-			cmd_vel.linear.x = 0;
+			cmd_vel.linear.x = vel_val;
+                        //printf("lock!\n");
 		}
 
 		if((prev_vel.linear.x != cmd_vel.linear.x)|(prev_vel.angular.z != cmd_vel.angular.z)){
