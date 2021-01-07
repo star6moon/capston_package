@@ -29,7 +29,7 @@ int main(int argc, char **argv)
 		ros::Rate loop_rate(10);
 		ros::spinOnce();
 
-		if(prev_vel.linear.x != cmd_vel.linear.x)
+		if((prev_vel.linear.x != cmd_vel.linear.x)||(prev_vel.angular.z != cmd_vel.angular.z))
 		{
 			midterm_control_pub.publish(cmd_vel);
 			std::cout << "state change!!" << std::endl;
