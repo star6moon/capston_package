@@ -54,7 +54,7 @@ void polyfit(const cv::Mat& src_x, const cv::Mat& src_y, cv::Mat& dst, int order
 
 void calc_warp_points(const cv::Mat& img,
 	std::vector<cv::Point2f>& src, std::vector<cv::Point2f>& dst,
-	int& y_bottom, int& y_top, int& imd_offset, int& point_check, int offset = 200)
+	int& y_bottom, int& y_top, int& imd_offset, int& point_check, int offset = 270)
 {
 	int nX, nY;
 	nX = img.cols;
@@ -71,6 +71,7 @@ void calc_warp_points(const cv::Mat& img,
 	dst.push_back(cv::Point2f(nX - offset, 0));
 	dst.push_back(cv::Point2f(nX - offset, nY));
 	dst.push_back(cv::Point2f(offset, nY));
+	//std::cout << "nX : " << nX << "   nY : " << nY << "   dst point nX - offset :" << nX - offset << std::endl;
 
 	if (point_check == 1){
 		cv::Mat point_mark = img.clone();
@@ -151,8 +152,11 @@ void combined_threshold(cv::Mat const& img, cv::Mat& dst)
 	abs_sobel_thresh(hls_channels[2], sobel_y, 'y', 3, 10, 170);*/
 
 	// perform thresholding on parallel
-	std::thread x_direct(abs_sobel_thresh, std::ref(hls_channels[2]), std::ref(sobel_x), 'x', 3, 10, 170);
-	std::thread y_direct(abs_sobel_thresh, std::ref(hls_channels[2]), std::ref(sobel_y), 'y', 3, 10, 170);
+        int kernel = 3;
+	int tre_max = 255;
+	int tre_min = 10;
+	std::thread x_direct(abs_sobel_thresh, std::ref(hls_channels[1]), std::ref(sobel_x), 'x', kernel, tre_min, tre_max);
+	std::thread y_direct(abs_sobel_thresh, std::ref(hls_channels[1]), std::ref(sobel_y), 'y', kernel, tre_min, tre_max);
 	x_direct.join();
 	y_direct.join();
 
@@ -169,10 +173,13 @@ void binary_topdown(const cv::Mat& undistorted, cv::Mat& warped,cv::Mat& M,cv::M
 	// int y_bottom = undistorted.rows;
 	// int y_top = undistorted.rows/2;
 	std::vector<cv::Point2f> src, dst;
-	calc_warp_points(undistorted, src, dst, y_bottom, y_top, mid_offset, point_check);
+	calc_warp_points(undistorted, src, dst, y_bottom, y_top, mid_offset, point_check, undistorted.cols * 0.42);
 
 	// calculate matrix for perspective warp
 	perspective_transforms(src, dst, M, Minv);
+	cv::Mat warped2;
+	perspective_warp(undistorted, warped2, M);
+	cv::imshow("warped2",warped2);
 
 	// TODO: handle daytime shadow images
 	// convert to HLS color space
@@ -181,13 +188,14 @@ void binary_topdown(const cv::Mat& undistorted, cv::Mat& warped,cv::Mat& M,cv::M
 
 	// get a warped image
 	perspective_warp(combined, warped, M);
+	//cv::imshow("warped",warped);
 }
 
 
 inline void lane_histogram(cv::Mat const& img, cv::Mat& histogram)
 {
 	// Histogram 
-	cv::Mat cropped = img(cv::Rect(0, img.rows / 2, img.cols, img.rows / 2));
+	cv::Mat cropped = img(cv::Rect(0, img.rows / 4, img.cols, img.rows / 4 * 3));
 	cv::reduce(cropped / 255, histogram, 0, cv::REDUCE_SUM, CV_32S);
 
 	return;
@@ -200,12 +208,13 @@ void lane_peaks(cv::Mat const& histogram, cv::Point& left_max_loc, cv::Point& ri
 	double min, max;
 	int midpoint = histogram.cols / 2;
 
-	cv::Mat left_half = histogram.colRange(0, midpoint);
-	cv::Mat right_half = histogram.colRange(midpoint, histogram.cols);
+	cv::Mat left_half = histogram.colRange(0, midpoint - int(midpoint * 0.25));
+	cv::Mat right_half = histogram.colRange(midpoint + int(midpoint * 0.25), histogram.cols);
+	//std::cout << "right_half : " << right_half << std::endl;
 
 	cv::minMaxLoc(left_half, &min, &max, &temp, &left_max_loc);
 	cv::minMaxLoc(right_half, &min, &max, &temp, &right_max_loc);
-	right_max_loc = right_max_loc + cv::Point(midpoint, 0);
+	right_max_loc = right_max_loc + cv::Point(midpoint + int(midpoint * 0.25), 0);
 
 	return;
 }

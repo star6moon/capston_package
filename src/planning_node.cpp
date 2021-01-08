@@ -23,6 +23,8 @@ static float L_angle = 0;
 static float R_angle = 0;
 static float L_dist = 0;
 static float R_dist = 0;
+static float L_find = 0;
+static float R_find = 0;
 static float left_or_right = 0;
 static float th_target = 0;
 static float th_max = 0;
@@ -66,15 +68,25 @@ void lane_Callback(const std_msgs::Float64MultiArray::ConstPtr& msg)
 {
     L_angle = msg->data[0]; 
     R_angle = msg->data[1];
-    L_dist = msg->data[2] / 1000 * 2;
-    R_dist = msg->data[3] / 1000 * 2;
+    L_dist = msg->data[2] / 1000;
+    R_dist = msg->data[3] / 1000;
+    L_find = msg->data[4];
+    R_find = msg->data[5];
 
-
-	float Len_target = 0.3;
-	float lane_width = 0.28;
+	float Len_target = 0.06;
+	float lane_width = 0.06;
 
 	// angle : left(+), right(-). (if car is on the rightside, th_target is +)
-	left_or_right = 0;
+	if(L_find){
+		left_or_right = 0;
+	}
+	else if(R_find){
+		left_or_right = 1;
+	}
+	else{
+		left_or_right = 0;
+	}
+	
 	if(left_or_right == 0){
 		th_target = atan2(L_dist - lane_width, Len_target);
 		th_err = th_target + L_angle;
@@ -95,8 +107,8 @@ void lane_Callback(const std_msgs::Float64MultiArray::ConstPtr& msg)
 	}
 
 
-	vel_max = 3;
-	vel_min = 0.2;
+	vel_max = 0.1;
+	vel_min = 0.01;
 
 
 	integ_th_err += th_err;
@@ -104,14 +116,14 @@ void lane_Callback(const std_msgs::Float64MultiArray::ConstPtr& msg)
 	kd = 1;
 	ki = 0.0001;
 
-	gain = kp * th_err + ki * (integ_th_err) + kd * (prev_th_err - th_err);
+	gain = ( kp * th_err + ki * (integ_th_err) + kd * (prev_th_err - th_err) ) / 5000;
 
     vel_val = vel_min + (vel_max - vel_min) * (th_max - std::abs(th_target)) / th_max;
-    cmd_vel.angular.z = gain / 1000;
+    cmd_vel.angular.z = gain;
 
 	prev_th_err = th_err;
 
-	std::cout << "L_dist - lane_width : " << L_dist - lane_width << "   lane_width - R_dist : " << lane_width - R_dist << std::endl;	
+	//std::cout << "L_dist - lane_width : " << L_dist - lane_width << "   lane_width - R_dist : " << lane_width - R_dist << std::endl;	
 	std::cout << "th_target : " << th_target << "   th_err : " << th_err << "   gain : " << gain << "   vel_val : " << vel_val << std::endl;
 }
 
@@ -152,7 +164,7 @@ int main(int argc, char **argv)
 			cmd_vel.linear.x = vel_val;
 		}
 		else{
-			cmd_vel.linear.x = vel_val;
+			cmd_vel.linear.x = 0;
                         //printf("lock!\n");
 		}
 

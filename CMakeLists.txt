@@ -7,6 +7,9 @@ find_package(catkin REQUIRED COMPONENTS
   rospy
   std_msgs
   sensor_msgs
+
+  image_transport
+  message_runtime
 )
 
 catkin_package(
@@ -16,7 +19,10 @@ catkin_package(
     roscpp
     rospy
     std_msgs
-    cv_bridge
+    sensor_msgs
+
+    image_transport
+    message_runtime
 )
 
 
