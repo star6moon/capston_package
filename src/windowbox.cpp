@@ -42,7 +42,6 @@ void WindowBox::get_indices(cv::Mat& x, cv::Mat& y) const
 		x.at<float>(i, 0) = nonzero[i].x + x_left;
 		y.at<float>(i, 0) = nonzero[i].y + y_bottom;
 	}
-
 	return;
 }
 

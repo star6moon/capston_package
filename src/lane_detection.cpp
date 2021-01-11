@@ -13,7 +13,7 @@
 
 // Window parameters
 #define N_WINDOWS 10
-#define WINDOW_WIDTH 80
+#define WINDOW_WIDTH 50
 
 
 int main(int argc, char **argv){
@@ -31,7 +31,8 @@ int main(int argc, char **argv){
 
 	int f_width = cap1.get(cv::CAP_PROP_FRAME_WIDTH);
 	int f_height = cap1.get(cv::CAP_PROP_FRAME_HEIGHT);
-	std::cout << "initial width : " << f_width << "  height : " << f_height << std::endl;
+	int f_fps = cap1.get(cv::CAP_PROP_FPS);
+	std::cout << "initial width : " << f_width << "  height : " << f_height << "  fps : " << f_fps << std::endl;
 
 	// cap1.set(CV_CAP_PROP_FOURCC, CV_FOURCC('M', 'J', 'P', 'G'));
 	cap1.set(cv::CAP_PROP_FPS, 5);
@@ -44,7 +45,8 @@ int main(int argc, char **argv){
 
 	f_width = cap1.get(cv::CAP_PROP_FRAME_WIDTH);
 	f_height = cap1.get(cv::CAP_PROP_FRAME_HEIGHT);
-	std::cout << "after set width : " << f_width << "  height : " << f_height << std::endl;
+	f_fps = cap1.get(cv::CAP_PROP_FPS);
+	std::cout << "after set width : " << f_width << "  height : " << f_height << "  fps : " << f_fps << std::endl;
 
 	if (!cap1.isOpened()) 
         std::cout << "첫번째 카메라를 열 수 없습니다." << std::endl;
@@ -54,6 +56,7 @@ int main(int argc, char **argv){
 	
     int nframe = 0;
     int height = frame.rows;
+	int detect_fail = 1;
 	cv::Point piece(frame.cols/4, frame.rows/4);
 	cv::Scalar red(0, 0, 255), blue(255, 0, 0), yellow(153, 255, 255);
 	cv::Scalar orange(0, 165, 255), magneta(255, 0, 255);
@@ -65,6 +68,11 @@ int main(int argc, char **argv){
 
 	std_msgs::Float64MultiArray msg;
 	msg.data.resize(6);
+
+	std::vector<WindowBox> left_boxes, right_boxes;
+	std::vector<double> fitx, fity, left_fitx, right_fitx, hist_fity, new_left_fitx, new_right_fitx;
+	float L_angle, R_angle, L_dist, R_dist;
+	cv::Mat left_fit, right_fit;
 
     std::cout << "loop start !" << std::endl;
 
@@ -85,96 +93,65 @@ int main(int argc, char **argv){
 		int mid_offset = frame.cols * 40.0 / 640.0;
 		int point_check = 1;
         binary_topdown(frame, warped, M, Minv, y_bottom, y_top, mid_offset, point_check);
-		cv::imshow("warped",warped);
-		//std::cout << "--0-1" << std::endl;
-        
-        cv::Mat histogram;
-		lane_histogram(warped, histogram);
-		// std::cout << "--0-2" << std::endl;
-		
-        // Peaks
-		cv::Point leftx_base, rightx_base;
-		lane_peaks(histogram, leftx_base, rightx_base);
-		// std::cout << "--0-3" << std::endl;
-
-		std::vector<WindowBox> left_boxes, right_boxes;
-		calc_lane_windows(warped, N_WINDOWS, WINDOW_WIDTH, left_boxes, right_boxes);
-		// std::cout << "--0-4" << std::endl;
-
-		int min_box_num = 6;
 		int L_find = 0;
 		int R_find = 0;
-		if((left_boxes.size() < min_box_num) && (right_boxes.size() < min_box_num) ){
-			std::cout << "--countinue left_boxes.size() : " << left_boxes.size() << "   right_boxes.size() : " << right_boxes.size() << std::endl;
-			continue;
+
+		cv::imshow("warped",warped);
+		//std::cout << "--0-1" << std::endl;
+
+		if(detect_fail){
+			cv::Mat histogram;
+			lane_histogram(warped, histogram);
+			// std::cout << "--0-2" << std::endl;
+			
+			// Peaks
+			cv::Point leftx_base, rightx_base;
+			lane_peaks(histogram, leftx_base, rightx_base);
+			// std::cout << "--0-3" << std::endl;
+			left_boxes.clear();
+			right_boxes.clear();
+			calc_lane_windows(warped, N_WINDOWS, WINDOW_WIDTH, left_boxes, right_boxes);
+			// std::cout << "--0-4" << std::endl;
+
+			int min_box_num = 6;
+
+			// generate x and values for plotting
+			fity = linspace<double>(0, warped.rows - 1, warped.rows);
+			fitx = linspace<double>(0, warped.cols - 1, warped.cols);
+			// std::cout << "--2" << std::endl;
+
+			hist_fity.clear();
+			for (int i = 0; i < histogram.cols; i++)
+				hist_fity.push_back(height - histogram.at<int>(0, i));
+
+			if(right_boxes.size() >= min_box_num){
+				right_fit = calc_fit_from_boxes(right_boxes);
+				right_fitx.clear();
+				poly_fitx_plus(fity, right_fitx, right_fit, R_angle);
+				R_dist = right_fitx.back() - warped.cols/2;
+				R_find = 1;
+				detect_fail = 0;
+			}
+			else{
+				continue;
+			}
 		}
-
-		// generate x and values for plotting
-		std::vector<double> fitx, fity, left_fitx, right_fitx, hist_fity, new_left_fitx, new_right_fitx;
-		fity = linspace<double>(0, warped.rows - 1, warped.rows);
-		fitx = linspace<double>(0, warped.cols - 1, warped.cols);
-		// std::cout << "--2" << std::endl;
-
-		for (int i = 0; i < histogram.cols; i++)
-			hist_fity.push_back(height - histogram.at<int>(0, i));
-
-		float L_angle, R_angle, L_dist, R_dist;
-		cv::Mat left_fit, right_fit;
-		if(left_boxes.size() >= min_box_num){
-			left_fit = calc_fit_from_boxes(left_boxes);
-			poly_fitx_plus(fity, left_fitx, left_fit, L_angle);
-			L_dist = warped.cols/2 - left_fitx.back();
-			L_find = 1;
-		}
-		if(right_boxes.size() >= min_box_num){
-			right_fit = calc_fit_from_boxes(right_boxes);
+		else if(detect_fail == 0){
+			cv::Mat masked;
+			right_fit = calc_fit_from_prev_fit(warped, masked, fity, right_fitx);
+			cv::imshow("masked", masked);
+			if(right_fit.at<float>(2, 0) == 0){
+				detect_fail = 1;
+				std::cout << "detect_fail !!" << std::endl;
+				continue;
+			}
+			right_fitx.clear();
 			poly_fitx_plus(fity, right_fitx, right_fit, R_angle);
 			R_dist = right_fitx.back() - warped.cols/2;
 			R_find = 1;
 		}
-		//if(L_find && R_find){
-		//	float x_diff = (left_fitx.back() - right_fitx.back());	
-		//	if((x_diff <  warped.cols/6) && (L_dist < R_dist)){
-		//	}
-		//}
 		
-		// std::cout << "--3" << std::endl;
-		
-		// double L_a1 = (-1/L_angle);
-		// double L_b1 = (warped.cols/2) - L_a1 * warped.rows;
-		
-		// double L_a2 = left_fit.at<float>(2, 0);
-		// double L_b2 = left_fit.at<float>(1, 0);
-		// double L_c2 = left_fit.at<float>(0, 0);
-		
-		// double L_cross_y = (-(L_b2 - L_a1) + sqrt(pow(L_b2 - L_a1, 2) - 4 * L_a2 * (L_c2 - L_b1))) / (2 * L_a1);
-		// double L_cross_x = L_a1 * L_cross_x + L_b1;
-
-		// std::cout << "L_cross_y : " << L_cross_y << "   L_cross_x : " << L_cross_x << std::endl;
-		// L_dist = sqrt(pow((L_cross_x - warped.cols/2), 2) + pow(L_cross_y - (warped.rows-1), 2));
-		// std::vector<double> L_fitx1;
-		// for (auto const& y : fity) {
-		// 	double x = L_a1 * y + L_b1;
-		// 	L_fitx1.push_back(x);
-		// }
-
-
-		// double R_a1 = (-1/R_angle);
-		// double R_b1 = (warped.rows-1) - R_a1 * warped.cols/2;
-		
-		// double R_a2 = right_fit.at<float>(2, 0);
-		// double R_b2 = right_fit.at<float>(1, 0);
-		// double R_c2 = right_fit.at<float>(0, 0);
-		
-		// double R_cross_x = (-(R_b2 - R_a1) + sqrt(pow(R_b2 - R_a1, 2) - 4 * R_a2 * (R_c2 - R_b1))) / (2 * R_a1);
-		// double R_cross_y = R_a1 * R_cross_x + R_b1;
-
-		// R_dist = sqrt(pow((R_cross_x - warped.cols/2), 2) + pow(R_cross_y - (warped.rows-1), 2));
-
-
-
-		
-		
+		L_angle = L_dist = 0;
 		std::cout << "L_angle : " << L_angle << "   R_angle : " << R_angle << "   L_dist : " << L_dist << "   R_dist : " << R_dist << std::endl;
 		// std::cout << "--4" << std::endl;
 

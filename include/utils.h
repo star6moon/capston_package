@@ -179,7 +179,7 @@ void binary_topdown(const cv::Mat& undistorted, cv::Mat& warped,cv::Mat& M,cv::M
 	perspective_transforms(src, dst, M, Minv);
 	cv::Mat warped2;
 	perspective_warp(undistorted, warped2, M);
-	cv::imshow("warped2",warped2);
+	cv::imshow("warped_bgr",warped2);
 
 	// TODO: handle daytime shadow images
 	// convert to HLS color space
@@ -295,11 +295,12 @@ void calc_lane_windows(cv::Mat& binary_img, int nwindows, int width,
 		peak_left.x = width / 2;
 		// std::cout << "--too left : " << width / 2 << std::endl;
 	}
+	
 	if(peak_right.x > binary_img.cols - width / 2){
 		peak_right.x = binary_img.cols - width / 2;
 		// std::cout << "--too right : " << binary_img.cols - width / 2 << std::endl;	
 	}
-
+	peak_right.x = int(binary_img.cols * 0.6);
 	// Initialise left and right window boxes
 	WindowBox wbl(binary_img, peak_left.x, ytop, width, height);
 	WindowBox wbr(binary_img, peak_right.x, ytop, width, height);
@@ -335,7 +336,6 @@ cv::Mat calc_fit_from_boxes(std::vector<WindowBox> const& boxes)
 	cv::vconcat(xmatrices, xs);
 	cv::vconcat(ymatrices, ys);
 
-
     // std::cout << " loop part calcfit 1 !" << std::endl;
 
 	// std::cout << " ys.size() : " << ys.size() << std::endl;
@@ -346,6 +346,54 @@ cv::Mat calc_fit_from_boxes(std::vector<WindowBox> const& boxes)
 	polyfit(ys, xs, fit, 2);
     
 
+	return fit;
+}
+
+cv::Mat calc_fit_from_prev_fit(const cv::Mat& src, cv::Mat& dst, std::vector<double>& fity, std::vector<double>& right_fitx)
+{
+	std::vector<std::vector<cv::Point>> fit_polygon;
+	fit_polygon.push_back(std::vector<cv::Point>());
+
+	int margin = src.cols/11;
+	for(int i = 0; i < fity.size(); i++ ){
+		if(right_fitx[i] - margin < 0){
+			fit_polygon[0].push_back(cv::Point(0, fity[i]));
+		}
+		else{
+			fit_polygon[0].push_back(cv::Point(right_fitx[i] - margin, fity[i]));
+		}
+		
+	}
+	for(int i = fity.size() - 1; i >= 0; i--){
+		if(right_fitx[i] + margin > src.cols - 1){
+			fit_polygon[0].push_back(cv::Point(src.cols - 1, fity[i]));
+		}
+		else{
+			fit_polygon[0].push_back(cv::Point(right_fitx[i] + margin, fity[i]));
+		}
+	}
+	cv::Mat mask(src.rows, src.cols, CV_8UC1, cv::Scalar(0));
+	drawContours(mask, fit_polygon,0, cv::Scalar(255), cv::FILLED, 8 );
+	src.copyTo(dst, mask);
+
+	std::vector<cv::Point> nonzero;
+	cv::findNonZero(dst, nonzero);
+	if(nonzero.size() <= 10){
+		cv::Mat fit = cv::Mat::zeros(3, 1, CV_32F);
+		return fit;
+	}
+
+	int npoints = nonzero.size();
+	cv::Mat x = cv::Mat::zeros(npoints, 1, CV_32F);
+	cv::Mat y = cv::Mat::zeros(npoints, 1, CV_32F);
+
+	for (int i = 0; i < npoints; i++) {
+		x.at<float>(i, 0) = nonzero[i].x;
+		y.at<float>(i, 0) = nonzero[i].y;
+	}
+
+	cv::Mat fit = cv::Mat::zeros(3, 1, CV_32F);
+	polyfit(y, x, fit, 2);
 	return fit;
 }
 
