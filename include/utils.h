@@ -274,7 +274,9 @@ void poly_fitx_plus(std::vector<double> const& fity, std::vector<double>& fitx, 
 		fitx.push_back(x);
 	}
 
-	angle = 2 * line_fit.at<float>(2, 0) * fity.back() + line_fit.at<float>(1, 0);
+	//angle = 2 * line_fit.at<float>(2, 0) * fity.back() + line_fit.at<float>(1, 0);
+	angle = 2 * line_fit.at<float>(2, 0) * fity.back() / 2 + line_fit.at<float>(1, 0);
+	//angle = line_fit.at<float>(1, 0);
 	return;
 }
 
@@ -354,7 +356,7 @@ cv::Mat calc_fit_from_prev_fit(const cv::Mat& src, cv::Mat& dst, std::vector<dou
 	std::vector<std::vector<cv::Point>> fit_polygon;
 	fit_polygon.push_back(std::vector<cv::Point>());
 
-	int margin = src.cols/11;
+	int margin = src.cols * 0.06;
 	for(int i = 0; i < fity.size(); i++ ){
 		if(right_fitx[i] - margin < 0){
 			fit_polygon[0].push_back(cv::Point(0, fity[i]));

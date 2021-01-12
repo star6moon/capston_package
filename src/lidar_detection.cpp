@@ -67,7 +67,7 @@ void laser_scan_Callback(const sensor_msgs::LaserScan::ConstPtr& msg)
 		abc = 0;
 	}
 
-	distance_msg.data = min_distance;
+	distance_msg.data = lidar_val.ranges[0];
 	++abc;
 
 }

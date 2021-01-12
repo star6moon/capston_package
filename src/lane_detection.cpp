@@ -90,7 +90,7 @@ int main(int argc, char **argv){
         // system("cls"); // window clear
 		int y_bottom = frame.rows;
 		int y_top = frame.rows/2.5;
-		int mid_offset = frame.cols * 40.0 / 640.0;
+		int mid_offset = frame.cols * 0.125;
 		int point_check = 1;
         binary_topdown(frame, warped, M, Minv, y_bottom, y_top, mid_offset, point_check);
 		int L_find = 0;
@@ -133,6 +133,7 @@ int main(int argc, char **argv){
 				detect_fail = 0;
 			}
 			else{
+				std::cout << "detect_fail 1 !!" << std::endl;
 				continue;
 			}
 		}
@@ -142,13 +143,19 @@ int main(int argc, char **argv){
 			cv::imshow("masked", masked);
 			if(right_fit.at<float>(2, 0) == 0){
 				detect_fail = 1;
-				std::cout << "detect_fail !!" << std::endl;
+				std::cout << "detect_fail 2 !!" << std::endl;
 				continue;
 			}
 			right_fitx.clear();
 			poly_fitx_plus(fity, right_fitx, right_fit, R_angle);
 			R_dist = right_fitx.back() - warped.cols/2;
 			R_find = 1;
+			
+			if((R_dist < 0) || (R_dist > warped.cols/2)){
+				detect_fail = 1;
+				std::cout << "detect_fail 3 !!" << std::endl;
+				continue;
+			} 
 		}
 		
 		L_angle = L_dist = 0;

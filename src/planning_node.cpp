@@ -73,8 +73,8 @@ void lane_Callback(const std_msgs::Float64MultiArray::ConstPtr& msg)
     L_find = msg->data[4];
     R_find = msg->data[5];
 
-	float Len_target = 0.06;
-	float lane_width = 0.06;
+	float Len_target = 0.033;
+	float lane_width = 0.033;
 
 	// angle : left(+), right(-). (if car is on the rightside, th_target is +)
 	if(L_find){
@@ -86,6 +86,7 @@ void lane_Callback(const std_msgs::Float64MultiArray::ConstPtr& msg)
 	else{
 		left_or_right = 0;
 	}
+	left_or_right = 1;
 	
 	if(left_or_right == 0){
 		th_target = atan2(L_dist - lane_width, Len_target);
@@ -119,7 +120,7 @@ void lane_Callback(const std_msgs::Float64MultiArray::ConstPtr& msg)
 	gain = ( kp * th_err + ki * (integ_th_err) + kd * (prev_th_err - th_err) ) / 5000;
 
     vel_val = vel_min + (vel_max - vel_min) * (th_max - std::abs(th_target)) / th_max;
-    cmd_vel.angular.z = gain;
+    
 
 	prev_th_err = th_err;
 
@@ -162,9 +163,11 @@ int main(int argc, char **argv)
 
         if((yolo_lock==0)&(angle_lock==0)&(distance_lock==0)){
 			cmd_vel.linear.x = vel_val;
+			cmd_vel.angular.z = gain;
 		}
 		else{
 			cmd_vel.linear.x = 0;
+			cmd_vel.angular.z = 0;
                         //printf("lock!\n");
 		}
 
