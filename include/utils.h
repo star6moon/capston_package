@@ -177,18 +177,49 @@ void binary_topdown(const cv::Mat& undistorted, cv::Mat& warped,cv::Mat& M,cv::M
 
 	// calculate matrix for perspective warp
 	perspective_transforms(src, dst, M, Minv);
-	cv::Mat warped2;
+	cv::Mat warped2, warped3, warped4;
 	perspective_warp(undistorted, warped2, M);
 	cv::imshow("warped_bgr",warped2);
+
+	cv::Mat img;
+	cv::Mat img_hsv;
+	warped2.copyTo(img);
+
+	cv::cvtColor(img, img_hsv, cv::COLOR_BGR2HSV);
+
+	cv::Mat yellow_mask, yellow_image, yellow_mask_not;
+
+	cv::Scalar lower_yellow = cv::Scalar(20, 20, 100);
+	cv::Scalar upper_yellow = cv::Scalar(32, 255, 255);
+
+	cv::inRange(img_hsv, lower_yellow, upper_yellow, yellow_mask);
+	cv::bitwise_and(img, img, yellow_image, yellow_mask);
+	
+	cv::Mat masked_img;
+	cv::bitwise_not(yellow_mask,yellow_mask_not);
+
+    	cv::Mat mask = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3, 3), cv::Point(1, 1));
+	cv::Mat dilated, eroded;
+	cv::erode(yellow_mask_not, eroded, mask, cv::Point(-1, -1), 3);
+	//cv::dilate(yellow_mask_not, dilated, mask, cv::Point(-1, -1), 3);
+	//cv::imshow("dilated", dilated);
+
+
+	warped2.copyTo(masked_img, yellow_mask_not);
+
 
 	// TODO: handle daytime shadow images
 	// convert to HLS color space
 	cv::Mat combined;
 	combined_threshold(undistorted, combined);
-
+	//combined_threshold(warped2, combined);
 	// get a warped image
-	perspective_warp(combined, warped, M);
-	//cv::imshow("warped",warped);
+	perspective_warp(combined, warped3, M);
+	//cv::imshow("before_masked",warped3);
+	warped3.copyTo(warped4, eroded);
+	warped4.copyTo(warped);
+	//cv::imshow("after_masked",warped);
+	//cv::imshow("eroded",eroded);
 }
 
 

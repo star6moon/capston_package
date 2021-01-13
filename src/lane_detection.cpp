@@ -96,8 +96,6 @@ int main(int argc, char **argv){
 		int L_find = 0;
 		int R_find = 0;
 
-		cv::imshow("warped",warped);
-		//std::cout << "--0-1" << std::endl;
 
 		if(detect_fail){
 			cv::Mat histogram;
