@@ -179,7 +179,7 @@ void binary_topdown(const cv::Mat& undistorted, cv::Mat& warped,cv::Mat& M,cv::M
 	perspective_transforms(src, dst, M, Minv);
 	cv::Mat warped2, warped3, warped4;
 	perspective_warp(undistorted, warped2, M);
-	cv::imshow("warped_bgr",warped2);
+	// cv::imshow("warped_bgr",warped2);
 
 	cv::Mat img;
 	cv::Mat img_hsv;
@@ -198,15 +198,13 @@ void binary_topdown(const cv::Mat& undistorted, cv::Mat& warped,cv::Mat& M,cv::M
 	cv::Mat masked_img;
 	cv::bitwise_not(yellow_mask,yellow_mask_not);
 
-    	cv::Mat mask = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3, 3), cv::Point(1, 1));
+	cv::Mat mask = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3, 3), cv::Point(1, 1));
 	cv::Mat dilated, eroded;
 	cv::erode(yellow_mask_not, eroded, mask, cv::Point(-1, -1), 3);
 	//cv::dilate(yellow_mask_not, dilated, mask, cv::Point(-1, -1), 3);
-	//cv::imshow("dilated", dilated);
-
+	// cv::imshow("dilated", dilated);
 
 	warped2.copyTo(masked_img, yellow_mask_not);
-
 
 	// TODO: handle daytime shadow images
 	// convert to HLS color space
@@ -218,8 +216,61 @@ void binary_topdown(const cv::Mat& undistorted, cv::Mat& warped,cv::Mat& M,cv::M
 	//cv::imshow("before_masked",warped3);
 	warped3.copyTo(warped4, eroded);
 	warped4.copyTo(warped);
-	//cv::imshow("after_masked",warped);
-	//cv::imshow("eroded",eroded);
+	// cv::imshow("after_masked",warped);
+	// cv::imshow("eroded",eroded);
+}
+
+void color_detection(const cv::Mat& undistorted){
+	cv::Mat img;
+	cv::Mat img_hsv;
+	undistorted.copyTo(img);
+
+	cv::cvtColor(img, img_hsv, cv::COLOR_BGR2HSV);
+
+	cv::Mat yellow_mask, yellow_image, yellow_mask_not;
+	cv::Mat red_mask1, red_mask2, red_mask3, red_image, red_mask_not;
+	cv::Mat green_mask, green_image, green_mask_not;
+
+	cv::Scalar lower_yellow = cv::Scalar(20, 20, 100);
+	cv::Scalar upper_yellow = cv::Scalar(28, 255, 255);
+	cv::Scalar lower_red1 = cv::Scalar(0, 70, 50);
+	cv::Scalar upper_red1 = cv::Scalar(7, 255, 255);
+	cv::Scalar lower_red2 = cv::Scalar(170, 70, 50);
+	cv::Scalar upper_red2 = cv::Scalar(180, 255, 255);
+	cv::Scalar lower_green = cv::Scalar(33, 52, 72);
+	cv::Scalar upper_green = cv::Scalar(98, 255, 255);
+
+
+	cv::inRange(img_hsv, lower_yellow, upper_yellow, yellow_mask);
+	cv::inRange(img_hsv, lower_red1, upper_red1, red_mask1);
+	cv::inRange(img_hsv, lower_red2, upper_red2, red_mask2);
+	cv::inRange(img_hsv, lower_green, upper_green, green_mask);
+
+	cv::bitwise_or(red_mask1, red_mask2, red_mask3);
+
+	cv::bitwise_and(img, img, yellow_image, yellow_mask);
+	cv::bitwise_and(img, img, red_image, red_mask3);
+	cv::bitwise_and(img, img, green_image, green_mask);
+
+	cv::Mat yello_masked_img, red_masked_img, green_masked_img;
+	img.copyTo(yello_masked_img, yellow_mask);
+	img.copyTo(red_masked_img, red_mask3);
+	img.copyTo(green_masked_img, green_mask);
+	
+	imshow("yello_masked_img",yello_masked_img);
+	imshow("red_masked_img",red_masked_img);
+	imshow("green_masked_img",green_masked_img);
+
+	cv::bitwise_not(yellow_mask, yellow_mask_not);
+	cv::bitwise_not(red_mask3, red_mask_not);
+	cv::bitwise_not(green_mask, green_mask_not);
+
+	cv::Mat yello_masked_not_img, red_masked_not_img, green_masked_not_img;
+	img.copyTo(yello_masked_not_img, yellow_mask_not);
+	img.copyTo(red_masked_not_img, red_mask_not);
+	img.copyTo(green_masked_not_img, green_mask_not);
+	
+
 }
 
 
@@ -312,18 +363,23 @@ void poly_fitx_plus(std::vector<double> const& fity, std::vector<double>& fitx, 
 }
 
 void calc_lane_windows(cv::Mat& binary_img, int nwindows, int width,
-	std::vector<WindowBox>& left_boxes, std::vector<WindowBox>& right_boxes)
+	std::vector<WindowBox>& left_boxes, std::vector<WindowBox>& right_boxes, double peak_l, double peak_r, int select)
 {
 	// calc height of each window
 	int ytop = binary_img.rows;
 	int height = ytop / nwindows;
 
-	// find leftand right lane centers to start with
-	cv::Mat histogram;
-	lane_histogram(binary_img, histogram); // Histogram 
+	// // find leftand right lane centers to start with
+	// cv::Mat histogram;
+	// lane_histogram(binary_img, histogram); // Histogram 
 
 	cv::Point peak_left, peak_right;
-	lane_peaks(histogram, peak_left, peak_right); // Peaks
+	// lane_peaks(histogram, peak_left, peak_right); // Peaks
+
+	peak_left.x = int(binary_img.cols * peak_l);
+	peak_right.x = int(binary_img.cols * peak_r);
+	// std::cout << "Debug - peak_right.x : " << peak_right.x << std::endl;
+
 	if(peak_left.x < width / 2){
 		peak_left.x = width / 2;
 		// std::cout << "--too left : " << width / 2 << std::endl;
@@ -333,18 +389,29 @@ void calc_lane_windows(cv::Mat& binary_img, int nwindows, int width,
 		peak_right.x = binary_img.cols - width / 2;
 		// std::cout << "--too right : " << binary_img.cols - width / 2 << std::endl;	
 	}
-	peak_right.x = int(binary_img.cols * 0.6);
-	// Initialise left and right window boxes
-	WindowBox wbl(binary_img, peak_left.x, ytop, width, height);
-	WindowBox wbr(binary_img, peak_right.x, ytop, width, height);
+
+	if(select == 0){
+		WindowBox wbl(binary_img, peak_left.x, ytop, width, height);// Initialise left and right window boxes
+		std::thread left(find_lane_windows, std::ref(binary_img), std::ref(wbl), std::ref(left_boxes));
+		left.join();
+	}
+	else if(select == 1){
+		WindowBox wbr(binary_img, peak_right.x, ytop, width, height);
+		std::thread right(find_lane_windows, std::ref(binary_img), std::ref(wbr), std::ref(right_boxes));
+		right.join();
+	}
+	else if(select == 2){
+		WindowBox wbl(binary_img, peak_left.x, ytop, width, height);// Initialise left and right window boxes
+		WindowBox wbr(binary_img, peak_right.x, ytop, width, height);
+		std::thread left(find_lane_windows, std::ref(binary_img), std::ref(wbl), std::ref(left_boxes));
+		std::thread right(find_lane_windows, std::ref(binary_img), std::ref(wbr), std::ref(right_boxes));
+		left.join();
+		right.join();
+	}
+	
 	/*find_lane_windows(binary_img, wbl, left_boxes);
 	find_lane_windows(binary_img, wbr, right_boxes);*/
 	// Parallelize searching
-
-	std::thread left(find_lane_windows, std::ref(binary_img), std::ref(wbl), std::ref(left_boxes));
-	std::thread right(find_lane_windows, std::ref(binary_img), std::ref(wbr), std::ref(right_boxes));
-	left.join();
-	right.join();
 
 	return;
 }
@@ -430,7 +497,7 @@ cv::Mat calc_fit_from_prev_fit(const cv::Mat& src, cv::Mat& dst, std::vector<dou
 	return fit;
 }
 
-void draw_line(cv::Mat& img, cv::Mat& left_fit, cv::Mat& right_fit, cv::Mat Minv, cv::Mat& out_img)
+void draw_line(cv::Mat& img, cv::Mat& left_fit, cv::Mat& right_fit, cv::Mat Minv, cv::Mat& out_img, int fail_L, int fail_R)
 {
 	int y_max = img.rows;
 	std::vector<double> fity = linspace<double>(0, y_max - 1, y_max);
@@ -438,18 +505,30 @@ void draw_line(cv::Mat& img, cv::Mat& left_fit, cv::Mat& right_fit, cv::Mat Minv
 
 	// Calculate Points
 	std::vector<double> left_fitx, right_fitx;
-	poly_fitx(fity, left_fitx, left_fit);
-	poly_fitx(fity, right_fitx, right_fit);
-
 	int npoints = fity.size();
 	std::vector<cv::Point> pts_left(npoints), pts_right(npoints), pts;
-	for (int i = 0; i < npoints; i++) {
-		pts_left[i] = cv::Point(left_fitx[i], fity[i]);
-		pts_right[i] = cv::Point(right_fitx[i], fity[i]);
+	if(!fail_L && !fail_R){
+		pts.reserve(2 * npoints);
 	}
-	pts.reserve(2 * npoints);
-	pts.insert(pts.end(), pts_left.begin(), pts_left.end());
-	pts.insert(pts.end(), pts_right.rbegin(), pts_right.rend());
+	else{
+		pts.reserve(npoints);
+	}
+	if(!fail_L){
+		poly_fitx(fity, left_fitx, left_fit);
+		for (int i = 0; i < npoints; i++) {
+			pts_left[i] = cv::Point(left_fitx[i], fity[i]);
+		}
+		pts.insert(pts.end(), pts_left.begin(), pts_left.end());
+	}
+	if(!fail_R){
+		poly_fitx(fity, right_fitx, right_fit);
+		for (int i = 0; i < npoints; i++) {
+			pts_right[i] = cv::Point(right_fitx[i], fity[i]);
+		}
+		pts.insert(pts.end(), pts_right.rbegin(), pts_right.rend());
+	}
+
+
 	std::vector<std::vector<cv::Point>> ptsarray{ pts };
 	cv::fillPoly(color_warp, ptsarray, cv::Scalar(0, 255, 0));
 

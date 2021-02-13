@@ -1,0 +1,14 @@
+<launch>
+  <node name="lane_detection_on_jetson" pkg="capston_package" type="lane_detection" respawn="false" output="screen" >
+    <param name="device_num"        type="string" value="/dev/video0" />
+    <param name="y_top_ratio"       type="double" value="0.4" />
+    <param name="mid_offset_ratio"  type="double" value="0.125" />
+    <param name="peak_l"            type="double" value="0.4" />
+    <param name="peak_r1"           type="double" value="0.6" />
+    <param name="peak_r2"           type="double" value="0.8" />
+    <param name="check_val"         type="double" value="0" />
+    <param name="check_img"         type="double" value="1" />
+    <param name="mode"         type="double" value="3" />
+    <param name="lane_offset"         type="double" value="30" />
+  </node>
+</launch>
